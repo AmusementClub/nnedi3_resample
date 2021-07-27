@@ -1,1 +1,0 @@
-# VapourSynth-script
