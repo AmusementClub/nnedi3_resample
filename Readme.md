@@ -33,6 +33,6 @@ clip.set_output()
 
 ## ChangeLog
 
-1. Add new option `mode`, default value is nnedi3, you can use `mode=znedi3` to instead it, znedi3 may be faster than nnedi3.
+1. Add new option `mode`, default value is `nnedi3`, you can use `znedi3` to instead it, znedi3 may be faster than nnedi3.
 2. Chage how to import core because `get_core` is deprecated.
-3. Remove `YCOCG` and `COMPAT`, this will be deprecated in API4.
+3. Remove `YCOCG` and `COMPAT`, these will be deprecated in API4.
