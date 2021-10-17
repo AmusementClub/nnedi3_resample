@@ -5,6 +5,7 @@
 - [nnedi3](https://github.com/dubhater/vapoursynth-nnedi3) / [znedi3](https://github.com/sekrit-twc/znedi3) / [nnedi3cl](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-NNEDI3CL)
 - [fmtconv](https://github.com/EleonoreMizo/fmtconv)
 - [mvsfunc](https://github.com/AmusementClub/mvsfunc)
+- [havsfunc](https://github.com/HomeOfVapourSynthEvolution/havsfunc)
 
 ## Usage
 
@@ -38,3 +39,4 @@ clip.set_output()
     - `nnedi3cl`, it can be used with new options `device` (same as the parameter of the plugin with the same name)
 2. Chage how to import core because `get_core` is deprecated.
 3. Remove `YCOCG` and `COMPAT`, these will be deprecated in API4.
+4. Remove internal `SigmoidDirect` and `SigmoidInverse` functions and use the updated versions from havsfunc instead.

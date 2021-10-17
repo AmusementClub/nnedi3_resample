@@ -1,6 +1,7 @@
 import vapoursynth as vs
 from vapoursynth import core
 import mvsfunc as mvf
+import havsfunc as haf
 import math
 
 
@@ -228,12 +229,12 @@ def nnedi3_resample(input, target_width=None, target_height=None, src_left=None,
         if gammaConv and sGammaConv:
             last = GammaToLinear(last, fulls, fulls, curves, sigmoid=sigmoid)
         elif sigmoid:
-            last = SigmoidInverse(last)
+            last = haf.SigmoidInverse(last)
         last = nnedi3_resample_kernel(last, target_width, target_height, src_left, src_top, src_width, src_height, scale_thr, nsize, nns, qual, etype, pscrn, opt, int16_prescreener, int16_predictor, exp, kernel, taps, a1, a2, invks, invkstaps, mode, device)
         if gammaConv and dGammaConv:
             last = LinearToGamma(last, fulls, fulls, curved, sigmoid=sigmoid)
         elif sigmoid:
-            last = SigmoidDirect(last)
+            last = haf.SigmoidDirect(last)
     elif scaleInYUV:
         # Separate planes
         Y = core.std.ShufflePlanes(last, [0], vs.GRAY)
@@ -517,36 +518,4 @@ def LinearAndGamma(src, l2g_flag, fulls, fulld, curve, planes, gcor, sigmoid, th
             return min(max(round(expr * 56064 + 4096), 0), 65535)
     
     return core.std.Lut(src, planes=planes, function=l2g if l2g_flag else g2l)
-
-# Apply the inverse sigmoid curve to a clip in linear luminance
-def SigmoidInverse(src, thr=0.5, cont=6.5, planes=[0, 1, 2]):
     
-    if not isinstance(src, vs.VideoNode) or src.format.bits_per_sample != 16:
-        raise ValueError('SigmoidInverse: This is not a 16-bit clip')
-    
-    if src.format.color_family == vs.GRAY:
-        planes = [0]
-    
-    def get_lut(x):
-        x0 = 1 / (1 + math.exp(cont * thr))
-        x1 = 1 / (1 + math.exp(cont * (thr - 1)))
-        return min(max(round((thr - math.log(max(1 / max(x / 65536 * (x1 - x0) + x0, 0.000001) - 1, 0.000001)) / cont) * 65536), 0), 65535)
-    
-    return core.std.Lut(src, planes=planes, function=get_lut)
-
-# Convert back a clip to linear luminance
-def SigmoidDirect(src, thr=0.5, cont=6.5, planes=[0, 1, 2]):
-    
-    if not isinstance(src, vs.VideoNode) or src.format.bits_per_sample != 16:
-        raise ValueError('SigmoidDirect: This is not a 16-bit clip')
-    
-    if src.format.color_family == vs.GRAY:
-        planes = [0]
-    
-    def get_lut(x):
-        x0 = 1 / (1 + math.exp(cont * thr))
-        x1 = 1 / (1 + math.exp(cont * (thr - 1)))
-        return min(max(round(((1 / (1 + math.exp(cont * (thr - x / 65536))) - x0) / (x1 - x0)) * 65536), 0), 65535)
-    
-    return core.std.Lut(src, planes=planes, function=get_lut)
-## Gamma conversion functions from HAvsFunc-r18
