@@ -227,12 +227,12 @@ def nnedi3_resample(input, target_width=None, target_height=None, src_left=None,
     # Scaling
     if scaleInGRAY or scaleInRGB:
         if gammaConv and sGammaConv:
-            last = GammaToLinear(last, fulls, fulls, curves, sigmoid=sigmoid)
+            last = core.fmtc.transfer(last, curves, 'linear', fulls=fulls, fulld=fulls)
         elif sigmoid:
             last = haf.SigmoidInverse(last)
         last = nnedi3_resample_kernel(last, target_width, target_height, src_left, src_top, src_width, src_height, scale_thr, nsize, nns, qual, etype, pscrn, opt, int16_prescreener, int16_predictor, exp, kernel, taps, a1, a2, invks, invkstaps, mode, device)
         if gammaConv and dGammaConv:
-            last = LinearToGamma(last, fulls, fulls, curved, sigmoid=sigmoid)
+            last = core.fmtc.transfer(last, 'linear', curved, fulls=fulls, fulld=fulls)
         elif sigmoid:
             last = haf.SigmoidDirect(last)
     elif scaleInYUV:
@@ -442,80 +442,3 @@ def nnedi3_dh(input, field=1, nsize=None, nns=None, qual=None, etype=None, pscrn
     else: raise ValueError('nnedi3_dh: Unsupported mode, should be nnedi3 (default), znedi3 or nnedi3cl.')
 
     return res
-
-
-## Gamma conversion functions from HAvsFunc-r18
-# Convert the luma channel to linear light
-def GammaToLinear(src, fulls=True, fulld=True, curve='709', planes=[0, 1, 2], gcor=1., sigmoid=False, thr=0.5, cont=6.5):
-    if not isinstance(src, vs.VideoNode) or src.format.bits_per_sample != 16:
-        raise ValueError('GammaToLinear: This is not a 16-bit clip')
-    
-    return LinearAndGamma(src, False, fulls, fulld, curve.lower(), planes, gcor, sigmoid, thr, cont)
-
-# Convert back a clip to gamma-corrected luma
-def LinearToGamma(src, fulls=True, fulld=True, curve='709', planes=[0, 1, 2], gcor=1., sigmoid=False, thr=0.5, cont=6.5):
-    if not isinstance(src, vs.VideoNode) or src.format.bits_per_sample != 16:
-        raise ValueError('LinearToGamma: This is not a 16-bit clip')
-    
-    return LinearAndGamma(src, True, fulls, fulld, curve.lower(), planes, gcor, sigmoid, thr, cont)
-
-def LinearAndGamma(src, l2g_flag, fulls, fulld, curve, planes, gcor, sigmoid, thr, cont):
-    
-    if curve == 'srgb':
-        c_num = 0
-    elif curve in ['709', '601', '170']:
-        c_num = 1
-    elif curve == '240':
-        c_num = 2
-    elif curve == '2020':
-        c_num = 3
-    else:
-        raise ValueError('LinearAndGamma: wrong curve value')
-    
-    if src.format.color_family == vs.GRAY:
-        planes = [0]
-    
-    #                 BT-709/601
-    #        sRGB     SMPTE 170M   SMPTE 240M   BT-2020
-    k0    = [0.04045, 0.081,       0.0912,      0.08145][c_num]
-    phi   = [12.92,   4.5,         4.0,         4.5][c_num]
-    alpha = [0.055,   0.099,       0.1115,      0.0993][c_num]
-    gamma = [2.4,     2.22222,     2.22222,     2.22222][c_num]
-    
-    def g2l(x):
-        expr = x / 65536 if fulls else (x - 4096) / 56064
-        if expr <= k0:
-            expr /= phi
-        else:
-            expr = ((expr + alpha) / (1 + alpha)) ** gamma
-        if gcor != 1 and expr >= 0:
-            expr **= gcor
-        if sigmoid:
-            x0 = 1 / (1 + math.exp(cont * thr))
-            x1 = 1 / (1 + math.exp(cont * (thr - 1)))
-            expr = thr - math.log(max(1 / max(expr * (x1 - x0) + x0, 0.000001) - 1, 0.000001)) / cont
-        if fulld:
-            return min(max(round(expr * 65536), 0), 65535)
-        else:
-            return min(max(round(expr * 56064 + 4096), 0), 65535)
-    
-    # E' = (E <= k0 / phi)   ?   E * phi   :   (E ^ (1 / gamma)) * (alpha + 1) - alpha
-    def l2g(x):
-        expr = x / 65536 if fulls else (x - 4096) / 56064
-        if sigmoid:
-            x0 = 1 / (1 + math.exp(cont * thr))
-            x1 = 1 / (1 + math.exp(cont * (thr - 1)))
-            expr = (1 / (1 + math.exp(cont * (thr - expr))) - x0) / (x1 - x0)
-        if gcor != 1 and expr >= 0:
-            expr **= gcor
-        if expr <= k0 / phi:
-            expr *= phi
-        else:
-            expr = expr ** (1 / gamma) * (alpha + 1) - alpha
-        if fulld:
-            return min(max(round(expr * 65536), 0), 65535)
-        else:
-            return min(max(round(expr * 56064 + 4096), 0), 65535)
-    
-    return core.std.Lut(src, planes=planes, function=l2g if l2g_flag else g2l)
-    
