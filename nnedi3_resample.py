@@ -1,7 +1,6 @@
 import vapoursynth as vs
 from vapoursynth import core
 import mvsfunc as mvf
-import havsfunc as haf
 import math
 
 
@@ -229,12 +228,12 @@ def nnedi3_resample(input, target_width=None, target_height=None, src_left=None,
         if gammaConv and sGammaConv:
             last = core.fmtc.transfer(last, curves, 'linear', fulls=fulls, fulld=fulls)
         elif sigmoid:
-            last = haf.SigmoidInverse(last)
+            last = SigmoidInverse(last)
         last = nnedi3_resample_kernel(last, target_width, target_height, src_left, src_top, src_width, src_height, scale_thr, nsize, nns, qual, etype, pscrn, opt, int16_prescreener, int16_predictor, exp, kernel, taps, a1, a2, invks, invkstaps, mode, device)
         if gammaConv and dGammaConv:
             last = core.fmtc.transfer(last, 'linear', curved, fulls=fulls, fulld=fulls)
         elif sigmoid:
-            last = haf.SigmoidDirect(last)
+            last = SigmoidDirect(last)
     elif scaleInYUV:
         # Separate planes
         Y = core.std.ShufflePlanes(last, [0], vs.GRAY)
@@ -442,3 +441,36 @@ def nnedi3_dh(input, field=1, nsize=None, nns=None, qual=None, etype=None, pscrn
     else: raise ValueError('nnedi3_dh: Unsupported mode, should be nnedi3 (default), znedi3 or nnedi3cl.')
 
     return res
+
+# Copy from havsfunc commit a35174d
+# Apply the inverse sigmoid curve to a clip in linear luminance
+def SigmoidInverse(src, thr=0.5, cont=6.5, planes=[0, 1, 2]):
+    if not isinstance(src, vs.VideoNode) or src.format.bits_per_sample != 16:
+        raise vs.Error('SigmoidInverse: This is not a 16-bit clip')
+
+    if thr < 0 or thr > 1:
+        raise vs.Error('SigmoidInverse: thr must be between 0.0 and 1.0 (inclusive)')
+
+    if cont <= 0:
+        raise vs.Error('SigmoidInverse: cont must be greater than 0.0')
+
+    x0 = 1 / (1 + math.exp(cont * thr))
+    x1m0 = 1 / (1 + math.exp(cont * (thr - 1))) - x0
+    expr = f'{thr} 1 x 65536 / {x1m0} * {x0} + 0.000001 max / 1 - 0.000001 max log {cont} / - 65536 *'
+    return src.std.Expr(expr=[expr if i in planes else '' for i in range(src.format.num_planes)])
+
+# Convert back a clip to linear luminance
+def SigmoidDirect(src, thr=0.5, cont=6.5, planes=[0, 1, 2]):
+    if not isinstance(src, vs.VideoNode) or src.format.bits_per_sample != 16:
+        raise vs.Error('SigmoidDirect: This is not a 16-bit clip')
+
+    if thr < 0 or thr > 1:
+        raise vs.Error('SigmoidDirect: thr must be between 0.0 and 1.0 (inclusive)')
+
+    if cont <= 0:
+        raise vs.Error('SigmoidDirect: cont must be greater than 0.0')
+
+    x0 = 1 / (1 + math.exp(cont * thr))
+    x1m0 = 1 / (1 + math.exp(cont * (thr - 1))) - x0
+    expr = f'1 1 {cont} {thr} x 65536 / - * exp + / {x0} - {x1m0} / 65536 *'
+    return src.std.Expr(expr=[expr if i in planes else '' for i in range(src.format.num_planes)])
