@@ -1,5 +1,7 @@
 # nnedi3_resample
 
+**You should better use https://github.com/HomeOfVapourSynthEvolution/nnedi3_resample**
+
 ## Requirements
 
 - [nnedi3](https://github.com/dubhater/vapoursynth-nnedi3) / [znedi3](https://github.com/sekrit-twc/znedi3) / [nnedi3cl](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-NNEDI3CL)
